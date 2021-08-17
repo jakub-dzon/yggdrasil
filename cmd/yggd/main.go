@@ -127,6 +127,12 @@ func main() {
 			Value:  "cert-cn",
 			Hidden: true,
 		},
+		&cli.StringFlag{
+			Name:   "podman-socket-name",
+			Usage:  "Podman `SOCKET` to connect to",
+			Value:  "podman.sock",
+			Hidden: true,
+		},
 	}
 
 	// This BeforeFunc will load flag values from a config file only if the
@@ -296,6 +302,7 @@ func main() {
 			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 			"BASE_CONFIG_DIR=" + configDir,
 			"LOG_LEVEL=" + level.String(),
+			"PODMAND_SOCKET_NAME=" + c.String("podman-socket-name"),
 		}
 		for _, info := range fileInfos {
 			if strings.HasSuffix(info.Name(), "worker") {
