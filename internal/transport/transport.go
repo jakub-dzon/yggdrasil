@@ -9,8 +9,7 @@ type DataHandler func(data []byte)
 
 type Transport interface {
 	Start() error
-	SendData(data yggdrasil.Data) error
-	SendControl(ctrlMsg interface{}) error
+	SendData(data yggdrasil.Data) (*yggdrasil.APIresponse, error)
+	SendControl(ctrlMsg interface{}) (*yggdrasil.APIresponse, error)
 	Disconnect(quiesce uint)
 }
-

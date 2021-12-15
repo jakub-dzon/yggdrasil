@@ -281,9 +281,10 @@ func main() {
 		// channel and dispatches them to worker processes.
 		go d.sendData()
 
+		go d.sendEvents()
 		// Start a goroutine that receives yggdrasil.Data values on a 'recv'
 		// channel and publish them to MQTT.
-		go transport.PublishReceivedData(controlPlaneTransport, d.recvQ)
+		go transport.PublishReceivedData(controlPlaneTransport, d.recvQ, d.eventsQ)
 
 		// Locate and start worker child processes.
 		workerPath := filepath.Join(yggdrasil.LibexecDir, yggdrasil.LongName)
@@ -399,7 +400,7 @@ func createControlMessageHandler(d *dispatcher) func(msg []byte, t transport.Tra
 				Content:    string(yggdrasil.EventNamePong),
 			}
 
-			err := t.SendControl(event)
+			_, err := t.SendControl(event)
 			if err != nil {
 				log.Error(err)
 			}

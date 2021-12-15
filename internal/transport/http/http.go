@@ -46,12 +46,12 @@ func (t *Transport) Start() error {
 			if t.disconnected.Load().(bool) {
 				return
 			}
-			payload, err := t.HttpClient.Get(t.getUrl("in", "control"))
+			APIResponse, err := t.HttpClient.Get(t.getUrl("in", "control"))
 			if err != nil {
 				log.Tracef("Error while getting work: %v", err)
 			}
-			if payload != nil && len(payload) > 0 {
-				t.controlHandler(payload, t)
+			if APIResponse != nil && APIResponse.Body != nil && len(APIResponse.Body) > 0 {
+				t.controlHandler(APIResponse.Body, t)
 			}
 			time.Sleep(t.pollingInterval)
 		}
@@ -62,13 +62,14 @@ func (t *Transport) Start() error {
 			if t.disconnected.Load().(bool) {
 				return
 			}
-			payload, err := t.HttpClient.Get(t.getUrl("in", "data"))
+			APIResponse, err := t.HttpClient.Get(t.getUrl("in", "data"))
 			if err != nil {
 				log.Tracef("Error while getting work: %v", err)
 			}
-			if payload != nil && len(payload) > 0 {
-				t.dataHandler(payload)
+			if APIResponse != nil && APIResponse.Body != nil && len(APIResponse.Body) > 0 {
+				t.dataHandler(APIResponse.Body)
 			}
+
 			time.Sleep(t.pollingInterval)
 		}
 	}()
@@ -76,11 +77,11 @@ func (t *Transport) Start() error {
 	return nil
 }
 
-func (t *Transport) SendData(data yggdrasil.Data) error {
+func (t *Transport) SendData(data yggdrasil.Data) (*yggdrasil.APIresponse, error) {
 	return t.send(data, "data")
 }
 
-func (t *Transport) SendControl(ctrlMsg interface{}) error {
+func (t *Transport) SendControl(ctrlMsg interface{}) (*yggdrasil.APIresponse, error) {
 	return t.send(ctrlMsg, "control")
 }
 
@@ -89,14 +90,14 @@ func (t *Transport) Disconnect(quiesce uint) {
 	t.disconnected.Store(true)
 }
 
-func (t *Transport) send(message interface{}, channel string) error {
+func (t *Transport) send(message interface{}, channel string) (*yggdrasil.APIresponse, error) {
 	if t.disconnected.Load().(bool) {
-		return nil
+		return nil, nil
 	}
 	url := t.getUrl("out", channel)
 	dataBytes, err := json.Marshal(message)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	headers := map[string]string{
 		"Content-Type": "application/json",

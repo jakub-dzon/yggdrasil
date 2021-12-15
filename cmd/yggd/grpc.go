@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/redhatinsights/yggdrasil/internal/clients/http"
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/redhatinsights/yggdrasil/internal/clients/http"
 
 	"git.sr.ht/~spc/go-log"
 	"github.com/redhatinsights/yggdrasil"
@@ -29,6 +30,7 @@ type dispatcher struct {
 	dispatchers chan map[string]map[string]string
 	sendQ       chan yggdrasil.Data
 	recvQ       chan yggdrasil.Data
+	eventsQ     chan pb.APIResponse
 	deadWorkers chan int
 	workers     map[string]worker
 	pidHandlers map[int]string
@@ -40,10 +42,11 @@ func newDispatcher(httpClient *http.Client) *dispatcher {
 		dispatchers: make(chan map[string]map[string]string),
 		sendQ:       make(chan yggdrasil.Data),
 		recvQ:       make(chan yggdrasil.Data),
+		eventsQ:     make(chan pb.APIResponse),
 		deadWorkers: make(chan int),
 		workers:     make(map[string]worker),
 		pidHandlers: make(map[int]string),
-		httpClient: httpClient,
+		httpClient:  httpClient,
 	}
 }
 
@@ -101,7 +104,7 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 		if yggdrasil.DataHost != "" {
 			URL.Host = yggdrasil.DataHost
 		}
-		if err := d.httpClient.Post(URL.String(), data.Metadata, data.Content); err != nil {
+		if _, err := d.httpClient.Post(URL.String(), data.Metadata, data.Content); err != nil {
 			e := fmt.Errorf("cannot post detached message content: %w", err)
 			log.Error(e)
 			return nil, e
@@ -111,6 +114,33 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 	log.Tracef("message: %+v", data.Content)
 
 	return &pb.Receipt{}, nil
+}
+
+func (d *dispatcher) sendEvents() {
+	for data := range d.eventsQ {
+		d.RLock()
+		w, prs := d.workers[data.Directive]
+		d.RUnlock()
+		if !prs {
+			log.Warnf("cannot route message to directive: %v", data.Directive)
+			continue
+		}
+		f := func(worker worker, data *pb.APIResponse) {
+			conn, err := grpc.Dial("unix:"+w.addr, grpc.WithInsecure())
+			if err != nil {
+				log.Errorf("cannot dial socket: %v", err)
+				return
+			}
+			defer conn.Close()
+
+			c := pb.NewWorkerClient(conn)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+
+			c.Events(ctx, data)
+		}
+		f(w, &data)
+	}
 }
 
 // sendData receives values on a channel and sends the data over gRPC
@@ -141,12 +171,12 @@ func (d *dispatcher) sendData() {
 					URL.Host = yggdrasil.DataHost
 				}
 
-				content, err := d.httpClient.Get(URL.String())
+				APIResponse, err := d.httpClient.Get(URL.String())
 				if err != nil {
 					log.Errorf("cannot get detached message content: %v", err)
 					return
 				}
-				data.Content = content
+				data.Content = APIResponse.Body
 			}
 
 			conn, err := grpc.Dial("unix:"+w.addr, grpc.WithInsecure())

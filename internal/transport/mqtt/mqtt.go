@@ -95,37 +95,37 @@ func (t *Transport) Start() error {
 	return nil
 }
 
-func (t *Transport) SendData(data yggdrasil.Data) error {
+func (t *Transport) SendData(data yggdrasil.Data) (*yggdrasil.APIresponse, error) {
 	topic := fmt.Sprintf("%v/%v/data/out", yggdrasil.TopicPrefix, t.ClientID)
 
 	d, err := json.Marshal(data)
 	if err != nil {
 		log.Errorf("cannot marshal message to JSON: %v", err)
-		return err
+		return nil, err
 	}
 
 	if token := t.MqttClient.Publish(topic, 1, false, d); token.Wait() && token.Error() != nil {
 		log.Errorf("failed to publish message: %v", token.Error())
-		return token.Error()
+		return nil, token.Error()
 	}
 	log.Debugf("published message %v to topic %v", data.MessageID, topic)
 	log.Tracef("message: %+v", data)
-	return nil
+	return nil, nil
 }
 
-func (t *Transport) SendControl(ctrlMsg interface{}) error {
+func (t *Transport) SendControl(ctrlMsg interface{}) (*yggdrasil.APIresponse, error) {
 	topic := fmt.Sprintf("%v/%v/control/out", yggdrasil.TopicPrefix, t.ClientID)
 
 	data, err := json.Marshal(ctrlMsg)
 	if err != nil {
 		log.Errorf("cannot marshal message to JSON: %v", err)
-		return err
+		return nil, err
 	}
 
 	if token := t.MqttClient.Publish(topic, 1, false, data); token.Wait() && token.Error() != nil {
-		return token.Error()
+		return nil, token.Error()
 	}
-	return nil
+	return nil, nil
 }
 
 func (t *Transport) handleDataMessage(msg mqtt.Message, handler transport.DataHandler) {

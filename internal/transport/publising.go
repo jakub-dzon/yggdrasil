@@ -1,13 +1,15 @@
 package transport
 
 import (
+	"os"
+	"path/filepath"
+	"time"
+
 	"git.sr.ht/~spc/go-log"
 	"github.com/google/uuid"
 	"github.com/redhatinsights/yggdrasil"
 	"github.com/redhatinsights/yggdrasil/internal/tags"
-	"os"
-	"path/filepath"
-	"time"
+	pb "github.com/redhatinsights/yggdrasil/protocol"
 )
 
 func PublishConnectionStatus(t Transport, dispatchers map[string]map[string]string) {
@@ -53,7 +55,7 @@ func PublishConnectionStatus(t Transport, dispatchers map[string]map[string]stri
 		},
 	}
 
-	err = t.SendControl(msg)
+	_, err = t.SendControl(msg)
 	if err != nil {
 		log.Error(err)
 	}
@@ -61,9 +63,12 @@ func PublishConnectionStatus(t Transport, dispatchers map[string]map[string]stri
 	log.Tracef("message: %+v", msg)
 }
 
-func PublishReceivedData(transport Transport, c <-chan yggdrasil.Data) {
+func PublishReceivedData(transport Transport, c <-chan yggdrasil.Data, e chan pb.APIResponse) {
 	for d := range c {
-		err := transport.SendData(d)
+		data, err := transport.SendData(d)
+		if data != nil {
+			e <- data.Export(d.Directive)
+		}
 		if err != nil {
 			log.Debug(err)
 		}
