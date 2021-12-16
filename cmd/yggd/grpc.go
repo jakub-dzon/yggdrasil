@@ -118,15 +118,18 @@ func (d *dispatcher) Send(ctx context.Context, r *pb.Data) (*pb.Receipt, error) 
 
 func (d *dispatcher) sendEvents() {
 	for data := range d.eventsQ {
+		workers := []worker{}
 		d.RLock()
-		w, prs := d.workers[data.Directive]
+		for _, wkr := range d.workers {
+			workers = append(workers, wkr)
+		}
 		d.RUnlock()
-		if !prs {
-			log.Warnf("cannot route message to directive: %v", data.Directive)
+		if len(workers) == 0 {
+			log.Warnf("cannot route message to workers: %v", data)
 			continue
 		}
-		f := func(worker worker, data *pb.APIResponse) {
-			conn, err := grpc.Dial("unix:"+w.addr, grpc.WithInsecure())
+		f := func(wrk worker, data *pb.APIResponse) {
+			conn, err := grpc.Dial("unix:"+wrk.addr, grpc.WithInsecure())
 			if err != nil {
 				log.Errorf("cannot dial socket: %v", err)
 				return
@@ -139,7 +142,9 @@ func (d *dispatcher) sendEvents() {
 
 			c.Events(ctx, data)
 		}
-		f(w, &data)
+		for _, wrk := range workers {
+			f(wrk, &data)
+		}
 	}
 }
 
