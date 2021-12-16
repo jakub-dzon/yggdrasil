@@ -129,12 +129,12 @@ func (t *Transport) SendControl(ctrlMsg interface{}) (*yggdrasil.APIresponse, er
 }
 
 func (t *Transport) handleDataMessage(msg mqtt.Message, handler transport.DataHandler) {
-	log.Debugf("received a message %s on topic %v", msg.MessageID(), msg.Topic())
+	log.Debugf("received a message %d on topic %v", msg.MessageID(), msg.Topic())
 	handler(msg.Payload())
 }
 
 func (t *Transport) handleControlMessage(msg mqtt.Message, handler transport.CommandHandler) {
-	log.Debugf("received a message %s on topic %v", msg.MessageID(), msg.Topic())
+	log.Debugf("received a message %d on topic %v", msg.MessageID(), msg.Topic())
 	handler(msg.Payload(), t)
 }
 
