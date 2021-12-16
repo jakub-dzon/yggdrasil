@@ -30,7 +30,7 @@ type dispatcher struct {
 	dispatchers chan map[string]map[string]string
 	sendQ       chan yggdrasil.Data
 	recvQ       chan yggdrasil.Data
-	eventsQ     chan pb.APIResponse
+	eventsQ     chan *pb.APIResponse
 	deadWorkers chan int
 	workers     map[string]worker
 	pidHandlers map[int]string
@@ -42,7 +42,7 @@ func newDispatcher(httpClient *http.Client) *dispatcher {
 		dispatchers: make(chan map[string]map[string]string),
 		sendQ:       make(chan yggdrasil.Data),
 		recvQ:       make(chan yggdrasil.Data),
-		eventsQ:     make(chan pb.APIResponse),
+		eventsQ:     make(chan *pb.APIResponse),
 		deadWorkers: make(chan int),
 		workers:     make(map[string]worker),
 		pidHandlers: make(map[int]string),
@@ -140,10 +140,13 @@ func (d *dispatcher) sendEvents() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			c.Events(ctx, data)
+			_, err = c.Events(ctx, data)
+			if err != nil {
+				log.Errorf("SendEvents: cannot send event to %v: %v", wrk.addr, err)
+			}
 		}
 		for _, wrk := range workers {
-			f(wrk, &data)
+			f(wrk, data)
 		}
 	}
 }

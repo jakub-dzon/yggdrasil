@@ -20,8 +20,8 @@ func (res *APIresponse) GetBody() string {
 	return string(res.Body)
 }
 
-func (res *APIresponse) Export(directite string) pb.APIResponse {
-	return pb.APIResponse{
+func (res *APIresponse) Export(directite string) *pb.APIResponse {
+	return &pb.APIResponse{
 		StatusCode: int64(res.Code),
 		Body:       res.GetBody(),
 		Directive:  directite,

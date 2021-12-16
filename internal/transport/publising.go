@@ -63,11 +63,12 @@ func PublishConnectionStatus(t Transport, dispatchers map[string]map[string]stri
 	log.Tracef("message: %+v", msg)
 }
 
-func PublishReceivedData(transport Transport, c <-chan yggdrasil.Data, e chan pb.APIResponse) {
+func PublishReceivedData(transport Transport, c <-chan yggdrasil.Data, e chan *pb.APIResponse) {
 	for d := range c {
 		data, err := transport.SendData(d)
 		if data != nil {
-			e <- data.Export(d.Directive)
+			apiResponse := data.Export(d.Directive)
+			e <- apiResponse
 		}
 		if err != nil {
 			log.Debug(err)
